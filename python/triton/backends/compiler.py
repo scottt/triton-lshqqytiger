@@ -209,6 +209,9 @@ class AttrsDescriptor:
         if AttrsDescriptor.is_equal_to_1(val):
             return "1"
         return "N"
+    
+    def __repr__(self):
+        return f"triton.backends.compiler.AttrsDescriptor({repr(self.to_dict())})"
 
 
 @dataclass(frozen=True)
