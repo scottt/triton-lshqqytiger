@@ -49,6 +49,10 @@ if(NOT WIN32)
   find_library(TERMINFO_LIBRARY tinfo)
 endif()
 
+if(TRITON_BUILD_UT)
+  include(AddTritonUnitTest)
+endif()
+
 # Compiler flags
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -D__STDC_FORMAT_MACROS ")
@@ -208,6 +212,7 @@ if(TRITON_BUILD_PYTHON_MODULE)
     MLIRSCFToControlFlow
     MLIRIndexToLLVM
     MLIRGPUToROCDLTransforms
+    MLIRUBToLLVM
 
     # LLVM
     LLVMPasses
@@ -218,7 +223,8 @@ if(TRITON_BUILD_PYTHON_MODULE)
 
   )
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR # Linux arm64
-     CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")     # macOS arm64
+     CMAKE_SYSTEM_PROCESSOR MATCHES "arm64" OR # macOS arm64
+     CMAKE_OSX_ARCHITECTURES MATCHES "arm64")  # also macOS arm64
       list(APPEND TRITON_LIBRARIES
           LLVMAArch64CodeGen
           LLVMAArch64AsmParser

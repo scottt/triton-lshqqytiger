@@ -57,8 +57,9 @@ def _build(name, src, srcdir, library_dirs, include_dirs, libraries):
     library_dirs += [ os.path.join(site.getsitepackages()[0], 'libs') ]
     library_dirs += [ os.path.join(os.environ['HIP_PATH'], 'lib')]
 
-    cc_cmd = [cc, src, "-O3", "-shared", "-o", so]
-    #cc_cmd = [cc, src, "-O3", "-shared", "-fPIC", "-o", so]
+    # for -Wno-psabi, see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=111047
+    cc_cmd = [cc, src, "-O3", "-shared", "-Wno-psabi", "-o", so]
+    #cc_cmd = [cc, src, "-O3", "-shared", "-fPIC", "-Wno-psabi", "-o", so]
     cc_cmd += [f'-l{lib}' for lib in libraries]
     cc_cmd += [f"-L{dir}" for dir in library_dirs]
     cc_cmd += [f"-I{dir}" for dir in include_dirs if dir is not None]

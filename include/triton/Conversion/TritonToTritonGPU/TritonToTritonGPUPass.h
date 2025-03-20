@@ -1,9 +1,10 @@
 #ifndef TRITON_CONVERSION_TRITONTOTRITONGPU_TRITONTOTRITONGPUPASS_H
 #define TRITON_CONVERSION_TRITONTOTRITONGPU_TRITONTOTRITONGPUPASS_H
 
+#include <iostream>
 #include <memory>
 #include <optional>
-#include <iostream>
+#include <string>
 
 namespace mlir {
 
