@@ -42,6 +42,8 @@ try:
 except ModuleNotFoundError:
     HAS_APEX = False
 
+DEVICE = triton.runtime.driver.active.get_active_torch_device()
+
 
 @triton.jit
 def _layer_norm_fwd_fused(
@@ -278,7 +280,7 @@ class LayerNorm(torch.autograd.Function):
             BLOCK_SIZE_N=ctx.BLOCK_SIZE,  #
             GROUP_SIZE_M=GROUP_SIZE_M,  #
             num_warps=ctx.num_warps)
-        grid = lambda meta: [triton.cdiv(N, meta['BLOCK_SIZE_N'])]
+        grid = lambda meta: (triton.cdiv(N, meta['BLOCK_SIZE_N']), )
         # accumulate partial sums in separate kernel
         _layer_norm_bwd_dwdb[grid](
             _dw, _db, dw, db, min(GROUP_SIZE_M, M), N,  #
@@ -290,7 +292,7 @@ class LayerNorm(torch.autograd.Function):
 layer_norm = LayerNorm.apply
 
 
-def test_layer_norm(M, N, dtype, eps=1e-5, device='cuda'):
+def test_layer_norm(M, N, dtype, eps=1e-5, device=DEVICE):
     # create data
     x_shape = (M, N)
     w_shape = (x_shape[-1], )
@@ -328,7 +330,7 @@ def test_layer_norm(M, N, dtype, eps=1e-5, device='cuda'):
         plot_name='layer-norm-backward',
         args={'M': 4096, 'dtype': torch.float16, 'mode': 'backward'},
     ))
-def bench_layer_norm(M, N, dtype, provider, mode='backward', eps=1e-5, device='cuda'):
+def bench_layer_norm(M, N, dtype, provider, mode='backward', eps=1e-5, device=DEVICE):
     # create data
     x_shape = (M, N)
     w_shape = (x_shape[-1], )

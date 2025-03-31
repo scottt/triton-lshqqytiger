@@ -1,6 +1,5 @@
 #include "OptimizeLDSUtility.h"
 #include "triton/Analysis/Allocation.h"
-#include "triton/Conversion/TritonGPUToLLVM/Patterns.h"
 #include "triton/Dialect/Triton/IR/Utility.h"
 #include "triton/Dialect/TritonGPU/IR/Attributes.h"
 #include "triton/Dialect/TritonGPU/IR/Dialect.h"
@@ -49,7 +48,9 @@ std::vector<SmallVector<unsigned>> factorizePowerOf2(int n, int rank) {
   return factors;
 }
 
-Attribute createTmpLayout(Attribute layout, ArrayRef<unsigned> warpsPerCTA) {
+triton::gpu::DistributedEncodingTrait
+createTmpLayout(triton::gpu::DistributedEncodingTrait layout,
+                ArrayRef<unsigned> warpsPerCTA) {
   auto ctx = layout.getContext();
   if (auto src = dyn_cast<triton::gpu::AMDMfmaEncodingAttr>(layout))
     return triton::gpu::AMDMfmaEncodingAttr::get(
@@ -58,21 +59,29 @@ Attribute createTmpLayout(Attribute layout, ArrayRef<unsigned> warpsPerCTA) {
         src.getCTALayout());
   if (auto src = dyn_cast<triton::gpu::AMDWmmaEncodingAttr>(layout))
     return triton::gpu::AMDWmmaEncodingAttr::get(
-        ctx, /*version=*/1, warpsPerCTA, src.getCTALayout());
+        ctx, src.getVersion(), src.getIsTransposed(), warpsPerCTA,
+        src.getCTALayout());
   if (auto src = dyn_cast<triton::gpu::BlockedEncodingAttr>(layout))
     return triton::gpu::BlockedEncodingAttr::get(
         ctx, src.getSizePerThread(), src.getThreadsPerWarp(), warpsPerCTA,
         src.getOrder(), src.getCTALayout());
   if (auto src = dyn_cast<triton::gpu::DotOperandEncodingAttr>(layout)) {
+    auto parent = cast<triton::gpu::DistributedEncodingTrait>(src.getParent());
     return triton::gpu::DotOperandEncodingAttr::get(
-        ctx, src.getOpIdx(), createTmpLayout(src.getParent(), warpsPerCTA),
+        ctx, src.getOpIdx(), createTmpLayout(parent, warpsPerCTA),
         src.getKWidth());
   }
-  if (auto src = dyn_cast<triton::gpu::SliceEncodingAttr>(layout))
+  if (auto src = dyn_cast<triton::gpu::SliceEncodingAttr>(layout)) {
+    auto warps = to_vector(warpsPerCTA);
+    warps.insert(warps.begin() + src.getDim(), 1);
     return triton::gpu::SliceEncodingAttr::get(
-        ctx, src.getDim(), createTmpLayout(src.getParent(), warpsPerCTA));
-  assert("Encountered unsupported layout");
-  return Attribute();
+        ctx, src.getDim(), createTmpLayout(src.getParent(), warps));
+  }
+  // TODO: support linear layout if needed.
+  if (isa<triton::gpu::LinearEncodingAttr>(layout))
+    return {};
+  assert(false && "Encountered unsupported layout");
+  return {};
 }
 
 std::pair<triton::gpu::ConvertLayoutOp, triton::gpu::ConvertLayoutOp>
